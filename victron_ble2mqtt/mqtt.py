@@ -1,5 +1,6 @@
 import logging
 import socket
+import datetime
 
 from bleak import BLEDevice
 from ha_services.mqtt4homeassistant.components.sensor import Sensor
@@ -37,6 +38,8 @@ class BaseHandler:
         self.rssi_sensor = None
         self.sensors = {}
 
+        self.last_published = datetime.datetime.now()
+
     def setup(self, *, data_dict):
         mac_address = self.ble_device.address
         uid = mac_address.lower().replace(':', '')
@@ -54,24 +57,37 @@ class BaseHandler:
             state_class='measurement',
         )
 
-    def publish(self, *, data_dict: dict, rssi: int | None) -> None:
+    def publish(self, *, data_dict: dict, rssi: int | None) -> bool:
         if self.device is None:
             self.setup(data_dict=data_dict)
 
-        self.main_mqtt_device.poll_and_publish(self.mqtt_client)
+        #print( self.device.name )
+        now = datetime.datetime.now()
+        if (now - self.last_published).total_seconds() > 5:
 
-        self.rssi_sensor.set_state(rssi)
-        self.rssi_sensor.publish(self.mqtt_client)
+            #print( " publishing" )
+            self.main_mqtt_device.poll_and_publish(self.mqtt_client)
 
-        for key, value in data_dict.items():
-            if key == 'model_name':
-                continue
+            self.rssi_sensor.set_state(rssi)
+            self.rssi_sensor.publish(self.mqtt_client)
 
-            if sensor := self.sensors.get(key):
-                sensor.set_state(value)
-                sensor.publish(self.mqtt_client)
-            else:
-                logger.warning(f'No sensor for key: {key}')
+            for key, value in data_dict.items():
+                if key == 'model_name':
+                    continue
+
+                if sensor := self.sensors.get(key):
+                    sensor.set_state(value)
+                    sensor.publish(self.mqtt_client)
+                else:
+                    logger.warning(f'No sensor for key: {key}')
+
+            self.last_published = now
+
+        else:
+            #print( " skipping" )
+            return False
+
+        return True
 
 
 def calc_midpoint_shift(voltage: float, midpoint_voltage: float) -> float:
@@ -331,15 +347,16 @@ class SolarChargerHandler(BaseHandler):
         )
 
     def publish(self, *, data_dict: dict, rssi: int | None) -> None:
-        super().publish(data_dict=data_dict, rssi=rssi)
 
-        # Extra sensors
+        if super().publish(data_dict=data_dict, rssi=rssi):
 
-        self.charging_power.set_state(data_dict['battery_voltage'] * data_dict['battery_charging_current'])
-        self.charging_power.publish(self.mqtt_client)
+            # Extra sensors
 
-        self.load_power.set_state(data_dict['battery_voltage'] * data_dict['external_device_load'])
-        self.load_power.publish(self.mqtt_client)
+            self.charging_power.set_state(data_dict['battery_voltage'] * data_dict['battery_charging_current'])
+            self.charging_power.publish(self.mqtt_client)
+
+            self.load_power.set_state(data_dict['battery_voltage'] * data_dict['external_device_load'])
+            self.load_power.publish(self.mqtt_client)
 
 
 class FallbackHandler(BaseHandler):
