@@ -38,7 +38,8 @@ class BaseHandler:
         self.rssi_sensor = None
         self.sensors = {}
 
-        self.last_published = datetime.datetime.now()
+        self.last_published      = datetime.datetime.now() - datetime.timedelta(seconds=5   )
+        self.host_last_published = datetime.datetime.now() - datetime.timedelta(seconds=1200)
 
     def setup(self, *, data_dict):
         mac_address = self.ble_device.address
@@ -66,10 +67,14 @@ class BaseHandler:
         if (now - self.last_published).total_seconds() > 5:
 
             #print( " publishing" )
-            self.main_mqtt_device.poll_and_publish(self.mqtt_client)
 
-            self.rssi_sensor.set_state(rssi)
-            self.rssi_sensor.publish(self.mqtt_client)
+            if (now - self.host_last_published).total_seconds() > 1200:
+                self.main_mqtt_device.poll_and_publish(self.mqtt_client)
+                self.rssi_sensor.set_state(rssi)
+                self.rssi_sensor.publish(self.mqtt_client)
+                self.host_last_published = now
+            #else:
+                #print( " skipping host publish" )
 
             for key, value in data_dict.items():
                 if key == 'model_name':
@@ -84,7 +89,7 @@ class BaseHandler:
             self.last_published = now
 
         else:
-            #print( " skipping" )
+            #print( " skipping sensor publish" )
             return False
 
         return True

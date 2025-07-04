@@ -35,7 +35,7 @@ def publish_loop(verbosity: TyroVerbosityArgType):
     user_settings: UserSettings = toml_settings.get_user_settings(debug=verbosity > 1)
 
     keys = user_settings.device_keys
-    print(f'Use device {len(keys)} device keys.')
+    print(f'Using {len(keys)} device keys.')
 
     class MqttPublisher(BaseScanner):
         def __init__(
