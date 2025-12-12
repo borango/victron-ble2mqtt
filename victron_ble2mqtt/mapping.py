@@ -41,7 +41,7 @@ VICTRON_VALUES = {
         unit=None,
     ),
     'solar_power': HaValueInfo(
-        name='Solar',
+        name='Input Power',
         device_class='power',
         state_class='measurement',
         unit='W',

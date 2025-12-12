@@ -312,7 +312,7 @@ class SolarChargerHandler(BaseHandler):
             ),
             'solar_power': Sensor(
                 device=self.device,
-                name='Solar',
+                name='Input Pwr',
                 uid='solar_power',
                 device_class='power',
                 state_class='measurement',
